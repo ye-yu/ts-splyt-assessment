@@ -10,10 +10,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/acorn": "^6.0.0",
     "@types/node": "^18.17.2",
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "acorn": "^8.10.0",
     "source-map-support": "^0.5.21"
   }
 }
