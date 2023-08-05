@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+original=$1
+
+if [ -z "$original" ]
+then
+  echo "Run <$0 [filename]>"
+  exit 1
+fi
+
+npx tsc
+
+head_replaced="${original//src/dist}"
+ext_replaced="${head_replaced//.ts/.js}"
+outname="$ext_replaced"
+
+stat "$outname" >/dev/null
+
+shift
+
+node -r source-map-support/register "$outname" $*
