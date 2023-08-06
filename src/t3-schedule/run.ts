@@ -20,6 +20,34 @@ const schedules: Schedule[] = [
   ],
 ];
 
+function isAvailableHour(
+  meetingSlot: Slot,
+  workSlots: Slot[],
+  businessHour: Slot
+): boolean {
+  const [meetingStart, meetingEnd] = meetingSlot;
+  for (const [workStart, workEnd] of workSlots) {
+    if (isBetweenHours(meetingStart, workStart, workEnd)) return false;
+    if (isBetweenHours(meetingEnd, workStart, workEnd)) return false;
+    if (!isBetweenHours(meetingStart, ...businessHour)) return false;
+    if (meetingEnd !== "19:00" && !isBetweenHours(meetingEnd, ...businessHour))
+      return false;
+  }
+  return true;
+}
+
+function getFirstAvailableSlot(
+  meetingSlotCandidates: Slot[],
+  workSlots: Slot[],
+  businessHour: Slot
+): Slot | null {
+  for (const meetingSlot of meetingSlotCandidates) {
+    if (isAvailableHour(meetingSlot, workSlots, businessHour))
+      return meetingSlot;
+  }
+  return null;
+}
+
 function getEarliestAvailableTime(
   schedules: Schedule[],
   meetingDurationMinutes: number,
@@ -32,17 +60,13 @@ function getEarliestAvailableTime(
   const slotCandidates = slotCandidatesStartTime.map(
     (start) => [start, addMinutes(start, meetingDurationMinutes)] as Slot
   );
-  const firstAvailableSlot = slotCandidates.find(([cStart, cEnd]) =>
-    eachSlots.every(
-      ([start, end]) =>
-        !isBetweenHours(cStart, start, end) &&
-        !isBetweenHours(cEnd, start, end) &&
-        isBetweenHours(cStart, ...businessHour) &&
-        isBetweenHours(cEnd, ...businessHour)
-    )
+  const firstAvailableSlot = getFirstAvailableSlot(
+    slotCandidates,
+    eachSlots,
+    businessHour
   );
 
   return firstAvailableSlot?.[0] ?? null;
 }
 
-console.log(getEarliestAvailableTime(schedules, 70, ["09:00", "19:00"]));
+console.log(getEarliestAvailableTime(schedules, 60, ["09:00", "19:00"]));
