@@ -1,3 +1,5 @@
+import { randomUUID } from "crypto";
+
 async function retryFailures<T>(
   fn: () => Promise<T>,
   retries: number
@@ -8,6 +10,7 @@ async function retryFailures<T>(
       return await fn();
     } catch (error) {
       lastError = error;
+      retries -= 1;
     }
   }
 
@@ -16,7 +19,9 @@ async function retryFailures<T>(
 
 function createTargetFunction(succeedsOnAttempt: number) {
   let attempt = 0;
+  const createFnId = randomUUID();
   return async () => {
+    console.log("createTargetFunction", { createFnId, attempt });
     if (++attempt === succeedsOnAttempt) {
       return attempt;
     }
@@ -28,35 +33,31 @@ function createTargetFunction(succeedsOnAttempt: number) {
 async function go() {
   // Examples
   // succeeds on attempt number 3
-  console.log("succeeds on attempt number 3");
   await retryFailures(createTargetFunction(3), 5)
     .then((attempt) => {
+      console.log("succeeds on attempt number 3");
       console.assert(attempt === 3);
     })
-    .catch((err) => console.assert(typeof err === "undefined"));
+    .catch((err) => console.assert(false, "should not throw error", err));
 
   // fails on attempt number 2 and throws last error
-  console.log("fails on attempt number 2 and throws last error");
-  await retryFailures(createTargetFunction(3), 2)
-    .then(
-      () => {
-        throw new Error("should not succeed");
-      },
-      (e) => {
-        console.assert(e.attempt === 2);
-      }
-    )
-    .catch((err) =>
-      console.assert(
-        err instanceof Error && err.message === "should not succeed"
-      )
-    );
+  await retryFailures(createTargetFunction(3), 2).then(
+    () => {
+      throw new Error("should not succeed");
+    },
+    (e) => {
+      console.log("fails on attempt number 2 and throws last error");
+      console.assert(e.attempt === 2);
+    }
+  );
 
   // succeeds
-  console.log("succeeds");
-  await retryFailures(createTargetFunction(10), 10).then((attempt) => {
-    console.assert(attempt === 10);
-  });
+  await retryFailures(createTargetFunction(10), 10)
+    .then((attempt) => {
+      console.log("succeeds");
+      console.assert(attempt === 10);
+    })
+    .catch((err) => console.assert(false, "should not throw error", err));
 }
 
 go();
