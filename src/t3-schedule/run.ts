@@ -20,32 +20,30 @@ const schedules: Schedule[] = [
   ],
 ];
 
-function isAvailableHour(
-  meetingSlot: Slot,
-  workSlots: Slot[],
-  businessHour: Slot
-): boolean {
+function isWithinBusinessHour(meetingSlot: Slot, businessHour: Slot): boolean {
   const [meetingStart, meetingEnd] = meetingSlot;
-  for (const [workStart, workEnd] of workSlots) {
-    if (isBetweenHours(meetingStart, workStart, workEnd)) return false;
-    if (isBetweenHours(meetingEnd, workStart, workEnd)) return false;
-    if (!isBetweenHours(meetingStart, ...businessHour)) return false;
-    if (meetingEnd !== "19:00" && !isBetweenHours(meetingEnd, ...businessHour))
-      return false;
-  }
+
+  if (!isBetweenHours(meetingStart, ...businessHour)) return false;
+  if (meetingEnd !== "19:00" && !isBetweenHours(meetingEnd, ...businessHour))
+    return false;
+
   return true;
 }
 
-function getFirstAvailableSlot(
-  meetingSlotCandidates: Slot[],
-  workSlots: Slot[],
-  businessHour: Slot
-): Slot | null {
-  for (const meetingSlot of meetingSlotCandidates) {
-    if (isAvailableHour(meetingSlot, workSlots, businessHour))
-      return meetingSlot;
+function isAvailableHour(
+  meetingSlot: Slot,
+  isBusyTimeline: Record<string, boolean>
+) {
+  const [meetingStart, meetingEnd] = meetingSlot;
+  for (
+    let currentTime = meetingStart;
+    currentTime != meetingEnd;
+    currentTime = addMinutes(currentTime, 1)
+  ) {
+    if (isBusyTimeline[currentTime]) return false;
   }
-  return null;
+
+  return true;
 }
 
 function getEarliestAvailableTime(
@@ -53,20 +51,44 @@ function getEarliestAvailableTime(
   meetingDurationMinutes: number,
   businessHour: Slot
 ): Time | null {
-  const eachSlots = schedules.flatMap((e) => e);
-  const slotCandidatesStartTime = eachSlots
+  const workingSlots = schedules.flatMap((e) => e);
+  const slotCandidatesStartTime = workingSlots
     .map((schedule) => schedule[1])
     .sort((a, b) => a.localeCompare(b, "en-us"));
-  const slotCandidates = slotCandidatesStartTime.map(
-    (start) => [start, addMinutes(start, meetingDurationMinutes)] as Slot
-  );
-  const firstAvailableSlot = getFirstAvailableSlot(
-    slotCandidates,
-    eachSlots,
-    businessHour
-  );
 
-  return firstAvailableSlot?.[0] ?? null;
+  type SlotCandidate = {
+    slot: Slot;
+    canUse: boolean;
+  };
+
+  const slotCandidates: SlotCandidate[] = slotCandidatesStartTime
+    .map((start) => {
+      const slot: Slot = [start, addMinutes(start, meetingDurationMinutes)];
+      const canUse = isWithinBusinessHour(slot, businessHour);
+      return {
+        slot,
+        canUse,
+      };
+    })
+    .filter((e) => e.canUse);
+
+  const isBusyTimeline: Record<Time, boolean> = {};
+  for (const [workStart, workEnd] of workingSlots) {
+    for (
+      let currentTime = workStart;
+      currentTime != workEnd;
+      currentTime = addMinutes(currentTime, 1)
+    ) {
+      isBusyTimeline[currentTime] = true;
+    }
+  }
+
+  for (const { slot } of slotCandidates) {
+    if (!isAvailableHour(slot, isBusyTimeline)) continue;
+    return slot[0];
+  }
+
+  return null;
 }
 
 console.log(getEarliestAvailableTime(schedules, 60, ["09:00", "19:00"]));
